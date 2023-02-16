@@ -2,15 +2,19 @@ import numpy as np
 import cv2
 import utilities
 from utilities import *
+import itertools
 
 refPts = []
 fps = None
 framecount = 0
 count = 0
-input = 0
-output = 0
+inputList = []
+outputList = []
+currInput = 0
+currOutput = 0
+detected = False
 
-cap = cv2.VideoCapture('videos/tap1.MOV')
+cap = cv2.VideoCapture('videos/tapButton4.MOV')
 
 def click_and_crop(event, x, y, flag, param):
     global refPts, cropped, count
@@ -65,13 +69,14 @@ while True and cropped is True:
     brX = FocusPts[2]
     brY = FocusPts[3]
     roi = frame[tlY:brY, tlX:brX]
+    roi2 = roi.copy()
 
     if fps is None:
         fps = cap.get(cv2.CAP_PROP_FPS)
         print('frames per second =', round(fps))
 
     framecount += 1
-    cv2.putText(userScreen, "fps: " + str(fps) + str(input), (100, 100), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2)
+    cv2.putText(userScreen, "fps: " + str(round(fps)), (100, 100), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2)
     hsv = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
 
     lower_blue = np.array([90, 25, 50])
@@ -84,21 +89,33 @@ while True and cropped is True:
 
     listLen = len(contours_blue)
 
-    if input != 0:
-        cv2.putText(userScreen, "touch detected at frame# " + str(input), (100, 130), cv2.FONT_HERSHEY_SIMPLEX, 1,(0, 0, 0), 2)
-    if listLen > 0:
-        # print("blue detected at frame# ", framecount)
-        if output == 0:
-            output = framecount
-            print("Screen output: ", framecount)
-            cv2.putText(userScreen, "blue detected at frame# " + str(output), (100, 160), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2)
-        else:
-            cv2.putText(userScreen, "blue detected at frame# " + str(output), (100, 160), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2)
+    if currInput != 0:
+        cv2.putText(userScreen, "touch detected at frame# " + str(currInput), (100, 130), cv2.FONT_HERSHEY_SIMPLEX, 1,(0, 0, 0), 2)
 
+
+    if listLen == 0:
+        detected = False
+        print("ListLen: 0")
+    elif listLen > 0 and detected == False:
+        # print("blue detected at frame# ", framecount)
+        currOutput = framecount
+        outputList.append(currOutput)
+        print("Screen output: ", framecount)
+        cv2.putText(userScreen, "blue detected at frame# " + str(currOutput), (100, 160), cv2.FONT_HERSHEY_SIMPLEX, 1,(0, 0, 0), 2)
+        detected = True
+        # if output == 0:
+        #     output = framecount
+        #     print("Screen output: ", framecount)
+        #     cv2.putText(userScreen, "blue detected at frame# " + str(output), (100, 160), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2)
+        # else:
+        #     cv2.putText(userScreen, "blue detected at frame# " + str(output), (100, 160), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2)
+    else:
+        cv2.putText(userScreen, "blue detected at frame# " + str(currOutput), (100, 160), cv2.FONT_HERSHEY_SIMPLEX, 1,(0, 0, 0), 2)
 
     # cv2.imshow('roiandmask', np.hstack([roi, mask]))
     cv2.imshow('userScreen', userScreen)
     cv2.imshow('mask', mask)
+    cv2.imshow('roi', roi2)
 
     # if cv2.waitKey(1) == ord('q'):
     # 	break
@@ -106,14 +123,19 @@ while True and cropped is True:
     # This is for playing the video with a key press
     key = cv2.waitKey(0)
     if key == ord('i'):
-        input = framecount
-        print("User input: ", input)
+        currInput = framecount
+        inputList.append(currInput)
+        print("User input: ", currInput)
     elif key == 27:
         break
 
-latency = (output -input) / round(fps)
-latency = round(latency, 3)
-print("latency: ", latency, "sec")
+for (i, j) in zip(inputList, outputList):
+    latency = (j - i) / round(fps)
+    latency = round(latency, 3)
+    print("input: ", i, " output: ", j, " latency: ", latency, "sec")
+# latency = (output -input) / round(fps)
+# latency = round(latency, 3)
+# print("latency: ", latency, "sec")
 
 
 cap.release()
