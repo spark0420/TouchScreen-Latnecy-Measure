@@ -45,9 +45,9 @@ def measurePixelPerMatrix(pts):
 	dB = dist.euclidean((tlblX, tlblY), (trbrX, trbrY))
 
 	if dA >= dB:
-		pixelsPerMetric = dA / 6.3
+		pixelsPerMetric = dA / 6.29
 	else:
-		pixelsPerMetric = dB / 6.3
+		pixelsPerMetric = dB / 6.29
 
 	return pixelsPerMetric
 
