@@ -8,6 +8,7 @@ import utilities
 from utilities import *
 from tracker import *
 import copy
+import csv
 
 pixelsPerMetric = None
 refPts = []
@@ -16,6 +17,7 @@ cropped = False
 fps = None
 framecount = 0
 fingerLocation = []
+fingerLocation_ext = []
 velocity_count = 1
 frameCount_velocity = 0
 velocity = 0
@@ -23,7 +25,7 @@ prevFingerLoc = []
 
 
 # cap = cv2.VideoCapture(0)
-cap = cv2.VideoCapture('videos/fps60_green_blue_6.MOV')
+cap = cv2.VideoCapture('userData/participant_1-1-edit.MOV')
 od = cv2.createBackgroundSubtractorMOG2()
 tracker = EuclideanDistTracker()
 
@@ -67,9 +69,18 @@ if cropped is True:
 	pixelsPerMetric = utilities.measurePixelPerMatrix(refPts)
 	print("pixelsPerMetrics: ", pixelsPerMetric)
 
+file = open('LatencyData.csv', 'w', newline='')
+header = ['velocity', 'distance(cm)']
+writer = csv.writer(file)
+writer.writerow(header)
 
 while True and pixelsPerMetric != None:
 	ret, frame = cap.read()
+
+	if not ret:
+		print("Can't receive frame (stream end?). Exiting ...")
+		break
+
 	FocusPts = utilities.findFocusZone(refPts)
 	tlX = FocusPts[0]
 	tlY = FocusPts[1]
@@ -231,22 +242,15 @@ while True and pixelsPerMetric != None:
 
 		dimA = dA / pixelsPerMetric
 		dimB = dB / pixelsPerMetric
-	# draw the object sizes on the image0
+
+
 
 	for distA in distances_green:
+		shortestSofar = 10000
+		shortestPathSofarList = []
 		for distB in distances_blue:
 			minDist = 0
 			shortestPath = []
-			# if (distA != distB):
-				# currtl = distA[0]
-				# currtr = distA[1]
-				# currbr = distA[2]
-				# currbl = distA[3]
-				#
-				# nexttl = distB[0]
-				# nexttr = distB[1]
-				# nextbr = distB[2]
-				# nextbl = distB[3]
 			for i in range(0, 4):
 				curr = distA[i]
 				for j in range(0, 4):
@@ -261,26 +265,43 @@ while True and pixelsPerMetric != None:
 						minDist = dimC
 						shortestPath = [curr, next]
 
-			currFingerLoc = [shortestPath[0], framecount]
-			trackerLocation = [shortestPath[1], framecount]
+			if shortestSofar > minDist:
+				shortestSofar = minDist
+				shortestPathSofarList = shortestPath
+
+		if len(shortestPathSofarList) > 0:
+			currFingerLoc = [shortestPathSofarList[0], framecount]
+			trackerLocation = [shortestPathSofarList[1], framecount]
+
 			#update the finger position in the list
 
-			if currFingerLoc[0] != prevFingerLoc:
-				fingerLocation.append(currFingerLoc)
-				prevFingerLoc = currFingerLoc[0]
+			# if currFingerLoc[0] != prevFingerLoc:
+			# 	fingerLocation.append(currFingerLoc)
+			# 	prevFingerLoc = currFingerLoc[0]
 
+			fingerLocation.append(currFingerLoc)
 
-			#frame counting method support
-			#i might need to add some offset in the coordiations due to the detection problem
-			for i in fingerLocation:
-				if(i[0] == trackerLocation[0]):
-					fingerInfo = "fingerLocation: " + str(i[0]) + " frame#: " + str(i[1])
-					trackerInfo = "trackerLocation: " + str(trackerLocation[0]) + " frame#: " + str(trackerLocation[1])
-					cv2.putText(roi2, fingerInfo, (50, 90), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 2)
-					cv2.putText(roi2, trackerInfo, (50, 110), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 2)
+			# frame counting method support
+			if len(fingerLocation) > 1 :
+				currLen = len(fingerLocation)
+				pts1 = fingerLocation[currLen-2][0]
+				pts2 = fingerLocation[currLen -1][0]
+				frm1 = fingerLocation[currLen-2][1]
+				frm2 = fingerLocation[currLen -1][1]
+				tempList = findExtendedFingerArea(pts1, pts2, frm1, frm2)
+				# print(tempList)
+				fingerLocation_ext = fingerLocation_ext + tempList
+				# print(fingerLocation_ext)
+				for i in fingerLocation_ext:
+					if i[0] == trackerLocation[0]:
+						fingerInfo = "fingerLocation: " + str(i[0]) + " frame#: " + str(i[1])
+						trackerInfo = "trackerLocation: " + str(trackerLocation[0]) + " frame#: " + str(trackerLocation[1])
+						cv2.putText(roi2, fingerInfo, (50, 90), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 2)
+						cv2.putText(roi2, trackerInfo, (50, 110), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 2)
+						break
 
 			#finger velocity calculation
-			half_fps = int(fps)/2
+			half_fps = int(fps) / 2
 			half_fps = round(half_fps)
 
 			if framecount % half_fps == 0:
@@ -294,15 +315,17 @@ while True and pixelsPerMetric != None:
 					velocity = round(velocity, 2)
 					# print("fingerTravelDistcm: ", fingerTravelDistCm, "velocity: ", velocity)
 
-			minDistCm = round(minDist * 2.54, 2)
+			minDistCm = round(shortestSofar * 2.54, 2)
 
 			cv2.putText(roi2, "frame#: " + str(framecount), (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 2)
 			cv2.putText(roi, str(velocity) + "cm/s", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 2)
-			cv2.putText(roi, str(minDistCm) + "cm", (shortestPath[1][0], shortestPath[1][1] + 30), cv2.FONT_HERSHEY_SIMPLEX,
+			cv2.putText(roi, str(minDistCm) + "cm", (shortestPathSofarList[1][0], shortestPathSofarList[1][1] + 30), cv2.FONT_HERSHEY_SIMPLEX,
 						0.65, (0, 0, 255), 2)
 			cv2.circle(roi, (int(currFingerLoc[0][0]), int(currFingerLoc[0][1])), 2, (255, 0, 255), -1)
 			cv2.circle(roi, (int(trackerLocation[0][0]), int(trackerLocation[0][1])), 2, (255, 0, 255), -1)
-			cv2.line(roi, shortestPath[0], shortestPath[1], (0, 0, 255), 1)
+			cv2.line(roi, shortestPathSofarList[0], shortestPathSofarList[1], (0, 0, 255), 1)
+
+			writer.writerow([velocity, minDistCm])
 
 	cv2.imshow('rois', np.hstack([roi, roi2]))
 	# cv2.imshow('frame_blue', np.hstack([roi, myObject_blue]))
@@ -317,6 +340,9 @@ while True and pixelsPerMetric != None:
 		break
 
 	# print("total frame: ", framecount)
+file.close()
 
+# for i in fingerLocation:
+# 	print("loc: ", i[0])
 cap.release()
 cv2.destroyAllWindows()

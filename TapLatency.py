@@ -12,6 +12,8 @@ inputList = []
 outputList = []
 currInput = 0
 currOutput = 0
+inputCount = 0
+outputCount = 0
 detected = False
 
 cap = cv2.VideoCapture('videos/tapButton4.MOV')
@@ -99,23 +101,18 @@ while True and cropped is True:
     elif listLen > 0 and detected == False:
         # print("blue detected at frame# ", framecount)
         currOutput = framecount
+        outputCount += 1
         outputList.append(currOutput)
         print("Screen output: ", framecount)
         cv2.putText(userScreen, "blue detected at frame# " + str(currOutput), (100, 160), cv2.FONT_HERSHEY_SIMPLEX, 1,(0, 0, 0), 2)
         detected = True
-        # if output == 0:
-        #     output = framecount
-        #     print("Screen output: ", framecount)
-        #     cv2.putText(userScreen, "blue detected at frame# " + str(output), (100, 160), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2)
-        # else:
-        #     cv2.putText(userScreen, "blue detected at frame# " + str(output), (100, 160), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2)
     else:
         cv2.putText(userScreen, "blue detected at frame# " + str(currOutput), (100, 160), cv2.FONT_HERSHEY_SIMPLEX, 1,(0, 0, 0), 2)
 
-    # cv2.imshow('roiandmask', np.hstack([roi, mask]))
+
     cv2.imshow('userScreen', userScreen)
     cv2.imshow('mask', mask)
-    cv2.imshow('roi', roi2)
+    # cv2.imshow('roi', roi2)
 
     # if cv2.waitKey(1) == ord('q'):
     # 	break
@@ -124,8 +121,14 @@ while True and cropped is True:
     key = cv2.waitKey(0)
     if key == ord('i'):
         currInput = framecount
-        inputList.append(currInput)
-        print("User input: ", currInput)
+        inputCount += 1
+
+        if inputCount <= outputCount:
+            outputList.pop()
+            print("input click was later than output. Deleting the current input and most recent output data")
+        else:
+            inputList.append(currInput)
+            print("User input: ", currInput)
     elif key == 27:
         break
 
@@ -133,9 +136,6 @@ for (i, j) in zip(inputList, outputList):
     latency = (j - i) / round(fps)
     latency = round(latency, 3)
     print("input: ", i, " output: ", j, " latency: ", latency, "sec")
-# latency = (output -input) / round(fps)
-# latency = round(latency, 3)
-# print("latency: ", latency, "sec")
 
 
 cap.release()
