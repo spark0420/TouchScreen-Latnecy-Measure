@@ -55,3 +55,7 @@ To capture the exact moment of touch, a mirror is placed on the side to see the 
 
 The tool automatically captures the moment blue is captured.
 Then, it calculates the frame count difference between the output and input to calculate the latency.
+
+### Note!
+The tool needs further modularization.
+More update aspects remain
